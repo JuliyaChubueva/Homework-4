@@ -2,8 +2,10 @@
 Задание 2. Реальный I/O и обработка ошибок
 
 Замеры (20 картинок + 2 битых URL):
-    robust: ___ s
-    Результат: успешно ___, ошибок ___
+    robust: 21.30 s
+    Результат: успешно 20, ошибок 2
+        https://no-such-site.invalid -> ConnectError
+        https://httpbin.org/delay/10 -> ReadTimeout
 
 Что сделано:
     - Таймаут: TIMEOUT = 5 секунд на каждый запрос. httpbin.org/delay/10
@@ -23,11 +25,14 @@
       как обычный результат. Один битый URL не роняет остальные, а
       robust_main возвращает кортеж (список результатов, список ошибок).
 
-Почему получилось столько времени:
+Почему получилось ~21 секунда:
     Дольше всех работает httpbin.org/delay/10: три попытки по 5 с таймаута
-    и паузы ~1 с и ~2 с между ними, итого около 18 с. Картинки за это время
-    успевают скачаться параллельно, поэтому общее время определяется именно
-    этим URL.
+    и паузы 1.2 с и 2.5 с между ними — около 19 с, плюс время на соединение.
+    Картинки за это время успевают скачаться параллельно, поэтому общее время
+    определяется именно этим URL.
+    Для no-such-site.invalid первые две попытки закончились ConnectTimeout:
+    поиск несуществующего домена (DNS) на Windows занял дольше таймаута.
+    Третья попытка вернула ConnectError — домена не существует.
 """
 
 import asyncio
@@ -42,7 +47,7 @@ URLS = [f"https://picsum.photos/seed/{i}/800/600" for i in range(20)]
 
 # Битые адреса для проверки
 URLS += [
-    "https://no-such-site.invalid",  # домена не существует, упадёт сразу
+    "https://no-such-site.invalid",  # домена не существует
     "https://httpbin.org/delay/10",  # отвечает 10 секунд, сработает таймаут
 ]
 
@@ -88,7 +93,8 @@ async def safe_fetch(client: httpx.AsyncClient, url: str):
     try:
         return "ok", await robust_fetch(client, url)
     except httpx.HTTPError as error:
-        return "error", f"{type(error).__name__}: {error}"
+        message = str(error) or "нет ответа за отведённое время"
+        return "error", f"{type(error).__name__}: {message}"
 
 
 async def robust_main():
