@@ -107,5 +107,5 @@ async def cpu_main():
 
 if __name__ == "__main__":
     # проверка обязательна: без неё ProcessPoolExecutor падает на Windows
-    # и масOS — дочерние процессы заново импортируют этот файл
+    # и маcOS — дочерние процессы заново импортируют этот файл
     timed("cpu  ", lambda: asyncio.run(cpu_main()))
